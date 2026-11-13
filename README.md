@@ -93,7 +93,7 @@ input_ids (B,T)        ──► Text   Tower ──► text_embeds  (B,D) ─�
 - **训练**：batch 64，学习率 1x10^{-4}，最多 20 个 epoch。bias 初值改成 log(1/63)，对应这个 batch 里每张图的 63 个负文本。验证损失连续 5 轮不降则停止，并加载验证损失最低的权重。
 - **指标**：测试集图找文、文找图的 Recall@1/5/10。图找文时，top-k 里出现该图任意一句 caption 即算命中。同时记录验证集上配对余弦和错配余弦。本轮曲线里训练损失下降、验证损失回升，相似度热力图也没有稳定对角线。
 
-数据集说明见 Flickr8k：[https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b](https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b)。本目录使用其中抽出的 `flickr8k-2k`。
+数据集说明见 Flickr8k：[https://www.kaggle.com/datasets/adityajn105/flickr8k](https://www.kaggle.com/datasets/adityajn105/flickr8k)。本目录使用其中抽出的 `flickr8k-2k`。
 
 ### 实战 2：CIFAR-10 类别模板分类
 
@@ -179,7 +179,7 @@ Two thousand images are taken from Flickr8k, each with its original five caption
 - **Training**: Batch size 64, learning rate \(1\times 10^{-4}\), at most 20 epochs. The bias is initialized to \(\log(1/63)\), matching the 63 negative texts per image in this batch. Training stops after 5 epochs without a lower validation loss, and the lowest-validation-loss checkpoint is reloaded.
 - **Metrics**: Image-to-text and text-to-image Recall@1/5/10. An image-to-text query counts as a hit when any of that image's five captions appears in the top-k. Paired and unpaired cosine on the validation set are logged as well. In this run the training loss falls while the validation loss turns up, and the similarity heatmap has no stable diagonal.
 
-Flickr8k: [https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b](https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b). This directory uses the extracted `flickr8k-2k` subset.
+Flickr8k: [https://www.kaggle.com/datasets/adityajn105/flickr8k](https://www.kaggle.com/datasets/adityajn105/flickr8k). This directory uses the extracted `flickr8k-2k` subset.
 
 ### Experiment 2: CIFAR-10 classification with class prompts
 
