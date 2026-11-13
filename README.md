@@ -49,11 +49,14 @@
 
 Sigmoid Loss for Language-Image Pre-Training（简称 SigLIP）由 **Xiaohua Zhai、Basil Mustafa、Alexander Kolesnikov、Lucas Beyer** 于 2023 年提出（ICCV 2023）。它保留 CLIP 的双塔图文预训练，把批内 softmax 对比损失换成**逐对 sigmoid 二分类损失**。每一对图文单独判断「配不配」，不再为了归一化去看整个 batch 的相似度矩阵。因此损失可以按设备分块计算，batch 可以加大，同时在较小 batch 上通常也比 softmax 更稳。
 
-CLIP 的对称 InfoNCE 把一张图在 batch 内所有文本上做一次 softmax，再把一段文本在所有图上做一次 softmax。正样本的梯度依赖全部分母，分布式训练需要收集全局嵌入并物化 \(B \times B\) 矩阵。SigLIP 的每一项只依赖自己的 logit：匹配对标签 \(+1\)，其余对标签 \(-1\)，损失是 \(-\log\sigma(z_{ij}(t\mathbf{x}_i\cdot\mathbf{y}_j+b))\)，对全部配对求和后再除以 batch size。温度 \(t=\exp(t')\) 与偏置 \(b\) 都可学习。论文把 \(t'\) 初始化为 \(\log 10\)、\(b\) 初始化为 \(-10\)，让开训时大量负对的损失接近 0，避免负样本失衡把前几步梯度拉爆。分块实现下，显存里同时存在的相似度块从 \(B^2\) 降到单设备的 \(b^2\)，论文把 batch 推到一百万，并发现收益在大约 32k 之后很快变平。
+CLIP 的对称 InfoNCE 把一张图在 batch 内所有文本上做一次 softmax，再把一段文本在所有图上做一次 softmax。正样本的梯度依赖全部分母，分布式训练需要收集全局嵌入并物化 BxB 矩阵。SigLIP 的每一项只依赖自己的 logit：匹配对标签 \(+1\)，其余对标签 \(-1\)，损失是 
+<img width="451" height="78" alt="image" src="https://github.com/user-attachments/assets/3d45245c-7513-44b3-8b15-18c1819b60d4" />
+
+，对全部配对求和后再除以 batch size。温度 \(t=\exp(t')\) 与偏置 \(b\) 都可学习。论文把 \(t'\) 初始化为 log 10、b 初始化为 \(-10\)，让开训时大量负对的损失接近 0，避免负样本失衡把前几步梯度拉爆。分块实现下，显存里同时存在的相似度块从 \(B^2\) 降到单设备的 \(b^2\)，论文把 batch 推到一百万，并发现收益在大约 32k 之后很快变平。
 
 论文 Table 1 里，从随机初始化训练的 SigLIP ViT-B/16（文本塔同为 Base，batch 32k，32 块 TPUv4，5 天）在 ImageNet 上达到 **73.4%** 零样本 Top-1。锁定图像塔、只训练文本塔的 SigLiT，用 g/14 图像塔在 4 块 TPUv4 上训练两天，达到 **84.5%**。这些数字来自 WebLI 规模的图文预训练，不能拿来和下面的小模型直接比。
 
-本复现用 PyTorch 从零写出 notebook 里的双塔：视觉塔用 **MAP 头**聚合成图像向量，文本塔取**左填充后的最后一个 token**，激活为 **GELU tanh 近似**，相似度是 L2 归一化后的余弦，再乘 \(\exp(\texttt{logit\_scale})\) 并加上 \(\texttt{logit\_bias}\)。损失与论文算法 1 一致：标签矩阵 \(z=2I-1\)，再算 \(-\sum\log\sigma(z\cdot\mathrm{logit})/B\)。三个实验分别是 Flickr8k-2k 上的图文检索、CIFAR-10 上用类别模板做的分类，以及官方 B/16 权重的推理。前两个实验的宽度和层数都缩小了，只用来把这套算法跑通。
+本复现用 PyTorch 从零写出 notebook 里的双塔：视觉塔用 **MAP 头**聚合成图像向量，文本塔取**左填充后的最后一个 token**，激活为 **GELU tanh 近似**，相似度是 L2 归一化后的余弦，再乘 exp(logit_scale) 并加上 logit_bias。损失与论文算法 1 一致：标签矩阵 \(z=2I-1\)，再算 −∑logσ(z⋅logit)/B。三个实验分别是 Flickr8k-2k 上的图文检索、CIFAR-10 上用类别模板做的分类，以及官方 B/16 权重的推理。前两个实验的宽度和层数都缩小了，只用来把这套算法跑通。
 
 ## 架构
 
@@ -70,7 +73,7 @@ input_ids (B,T)        ──► Text   Tower ──► text_embeds  (B,D) ─�
 - **图像编码器**：输入切成不重叠的 patch，用带 bias 的卷积投影成序列，加上可学习位置编码，送入 Pre-LN Transformer。序列里没有 CLS token。编码器之后做一次 LayerNorm，再由 **MAP 头**池化：一个可学习的 probe 作为唯一 query，对全部 patch 做交叉注意力，接 LayerNorm、MLP 和残差，得到 `(B, D)`。官方 B/16 为 224 输入、patch 16、196 个 patch、768 维、12 层、12 头。
 - **文本编码器**：词嵌入加可学习位置编码，送入**双向** Transformer（没有 CLIP 那种因果掩码），PAD 位置不参与注意力。最后做 LayerNorm，再用带 bias 的线性层作用到每个 token，取序列最后一个位置。本复现对文本**左填充**，这一位是 EOS。官方 B/16 的词表大小为 32000，最大长度 64，隐藏维 768，12 层、12 头。
 - **共享空间**：两个塔的宽度相同，输出各自 L2 归一化。点积就是余弦相似度，范围在 \([-1,1]\)。本复现没有再投到另一个更小的 `embed_dim`。
-- **温度与偏置**：`logit_scale` 以对数形式存储，前向使用 \(\exp(\texttt{logit\_scale})\)，保证温度为正。`logit_bias` 是 sigmoid 损失需要的校准项：softmax 自己有归一化，sigmoid 没有，全局偏移要单独学。架构示例里的初值是 \(\log 10\) 和 \(-10\)。两个小实验按当前负样本数改写了 bias 初值，见下一节。
+- **温度与偏置**：`logit_scale` 以对数形式存储，前向使用 exp(logit_scale)，保证温度为正。`logit_bias` 是 sigmoid 损失需要的校准项：softmax 自己有归一化，sigmoid 没有，全局偏移要单独学。架构示例里的初值是 \(\log 10\) 和 \(-10\)。两个小实验按当前负样本数改写了 bias 初值，见下一节。
 - **Sigmoid 损失**：对 logits 构造 \(z=2I-1\)（对角线 \(+1\)，其余 \(-1\)），损失为 \(-\sum\log\sigma(z\cdot\mathrm{logit})/B\)。不要把 \(\pm 1\) 直接送进 `binary_cross_entropy_with_logits`，那个函数的目标是 0/1。除数是 batch size \(B\)，不是配对数 \(B^2\)。
 - **推理**：官方模型输出 `logits_per_image`，再过 sigmoid。每一对图文有自己的概率，一行不必加和为 1。分类实验里没有分类头，预测是 10 句类别模板中 logit 最大的那一句。
 
