@@ -12,31 +12,36 @@
 
 训练曲线（`curve.png`）：
 
-<img src="curve.png" alt="Flickr8k-2k training curve" />
+<img width="1200" height="600" alt="image" src="https://github.com/user-attachments/assets/f7f58541-1eeb-4089-98aa-a8f9410495ed" />
+
 
 测试集前 16 对图文余弦（`sim.png`）：
 
-<img src="sim.png" alt="Flickr8k-2k similarity" />
+<img width="1650" height="1350" alt="image" src="https://github.com/user-attachments/assets/4a972b6f-3110-4e22-915c-fae301f16fe4" />
+
 
 **实战 2：CIFAR-10 类别模板分类。** 训练损失从约 2.9 降到约 1.9。验证准确率从约 32% 升到约 60% 后走平，明显高于 10% 的随机水平。10×10 的「类图像均值 × 类名文本」矩阵对角更亮，飞机、汽车、青蛙、马、船、卡车更清楚，猫、鹿、狗更弱。
 
 训练曲线（`curve_cifar10.png`）：
 
-<img src="curve_cifar10.png" alt="CIFAR-10 training curve" />
+<img width="1500" height="600" alt="image" src="https://github.com/user-attachments/assets/bda1690d-9627-44c9-8c0a-1ecc876c4778" />
+
 
 类别相似度（`sim_cifar10.png`）：
 
-<img src="sim_cifar10.png" alt="CIFAR-10 class similarity" />
+<img width="1200" height="1050" alt="image" src="https://github.com/user-attachments/assets/f8d49f0e-2572-4f7a-84c3-5bdd97f275f4" />
+
 
 **实战 3：官方 B/16 推理。** 4 张 Flickr8k 图各自对上自己的 caption，匹配 4/4。sigmoid 概率分别约为 0.968、0.954、0.827、0.988。同一行的概率互不归一，不必加和为 1。
 
 图文 sigmoid 概率（`sim_official.png`）：
 
-<img src="sim_official.png" alt="official SigLIP sigmoid probabilities" />
+<img width="1200" height="900" alt="image" src="https://github.com/user-attachments/assets/646ec574-3173-4dd9-a0e2-a5f9ac2043e6" />
+
 
 每张图取得分最高的 caption（`infer_official.png`）：
 
-<img src="infer_official.png" alt="official SigLIP inference" />
+<img width="1800" height="540" alt="image" src="https://github.com/user-attachments/assets/2ac666a4-2098-4c84-a84d-c3f48036e870" />
 
 ---
 
