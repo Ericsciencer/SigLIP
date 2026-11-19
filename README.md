@@ -77,6 +77,8 @@ input_ids (B,T)        ──► Text   Tower ──► text_embeds  (B,D) ─�
 - **Sigmoid 损失**：对 logits 构造 \(z=2I-1\)（对角线 \(+1\)，其余 \(-1\)），损失为 −∑logσ(z⋅logit)/B。不要把 \(\pm 1\) 直接送进 `binary_cross_entropy_with_logits`，那个函数的目标是 0/1。除数是 batch size \(B\)，不是配对数 \(B^2\)。
 - **推理**：官方模型输出 `logits_per_image`，再过 sigmoid。每一对图文有自己的概率，一行不必加和为 1。分类实验里没有分类头，预测是 10 句类别模板中 logit 最大的那一句。
 
+了解其更详细的架构见文章：[SigLIP深入浅出](https://blog.csdn.net/Eric005/article/details/170424632?fromshare=blogdetail&sharetype=blogdetail&sharerId=170424632&sharerefer=PC&sharesource=Eric005&sharefrom=from_link)
+
 **缩小配置（实战 1、实战 2）**：视觉塔和文本塔都是 4 层、192 维、3 头。优化器为 AdamW，学习率带 5% warmup 和余弦衰减，梯度裁剪 1.0；二维权重 weight decay 0.01，bias 与 LayerNorm 不做 weight decay。这是教学规模，参数量远小于官方约 203M 的 B/16。
 
 ## 实验与数据
